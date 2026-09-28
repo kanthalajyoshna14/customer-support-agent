@@ -1,0 +1,185 @@
+import re
+import json
+from collections import Counter
+from typing import Dict, List, Tuple
+
+"""
+Problem Statement:
+Customer support teams are often overwhelmed by repetitive queries, 
+leading to longer response times and decreased customer satisfaction. 
+We need an automated system capable of understanding basic customer 
+inquiries, classifying the intent of the message, and providing immediate, 
+standardized responses for common issues, escalating to a human agent 
+only when necessary.
+
+This code provides a foundational approach using rule-based and 
+basic statistical NLP methods to address this problem.
+"""
+
+# A simple knowledge base mapping intents to standard responses.
+KNOWLEDGE_BASE = {
+    "greeting": "Hello! How can I help you today?",
+    "password_reset": "To reset your password, please visit https://example.com/reset and follow the instructions.",
+    "order_status": "You can check your order status by logging into your account and visiting the 'My Orders' section.",
+    "refund_policy": "Our refund policy allows returns within 30 days of purchase. Please visit https://example.com/refunds for details.",
+    "contact_human": "I'm transferring you to a human agent now. Please wait a moment.",
+    "unknown": "I'm sorry, I didn't quite understand that. Could you please rephrase, or would you like to speak to a human representative?"
+}
+
+# Keywords associated with specific intents to help the agent classify user queries.
+INTENT_KEYWORDS = {
+    "greeting": ["hello", "hi", "hey", "greetings", "good morning", "good afternoon"],
+    "password_reset": ["password", "reset", "forgot", "login", "can't access account"],
+    "order_status": ["order", "status", "track", "shipping", "where is my package", "delivery"],
+    "refund_policy": ["refund", "return", "money back", "cancel"],
+    "contact_human": ["human", "person", "representative", "agent", "talk to someone", "help me"]
+}
+
+class CustomerSupportAgent:
+    """
+    A simple customer support agent that uses keyword matching 
+    to determine the user's intent and provide an appropriate response.
+    """
+    
+    def __init__(self, knowledge_base: Dict[str, str], intent_keywords: Dict[str, List[str]]):
+        """
+        Initializes the agent with a knowledge base and intent keywords.
+        """
+        self.knowledge_base = knowledge_base
+        self.intent_keywords = intent_keywords
+        print("Customer Support Agent initialized and ready to assist.")
+
+    def preprocess_text(self, text: str) -> str:
+        """
+        Preprocesses the input text by converting it to lowercase 
+        and removing punctuation.
+        """
+        # Convert to lowercase
+        text = text.lower()
+        # Remove punctuation using regular expressions
+        text = re.sub(r'[^\w\s]', '', text)
+        return text
+
+    def classify_intent(self, text: str) -> str:
+        """
+        Classifies the intent of the user's message based on keyword matching.
+        Returns the intent with the highest keyword count.
+        """
+        preprocessed_text = self.preprocess_text(text)
+        words = preprocessed_text.split()
+        
+        intent_scores = Counter()
+        
+        # Iterate through the defined intents and their associated keywords
+        for intent, keywords in self.intent_keywords.items():
+            for keyword in keywords:
+                # Check if the keyword is present in the preprocessed text
+                if keyword in preprocessed_text:
+                     # Increment score for this intent
+                    intent_scores[intent] += 1
+                    
+        # If no keywords matched, return 'unknown'
+        if not intent_scores:
+            return "unknown"
+            
+        # Return the intent with the highest score
+        # most_common(1) returns a list of tuples like [('intent', score)]
+        return intent_scores.most_common(1)[0][0]
+
+    def generate_response(self, intent: str) -> str:
+        """
+        Retrieves the appropriate response from the knowledge base 
+        based on the classified intent.
+        """
+        default_fallback = "I'm sorry, I didn't quite understand that. Could you please rephrase, or would you like to speak to a human representative?"
+        fallback_response = self.knowledge_base.get("unknown", default_fallback)
+        return self.knowledge_base.get(intent, fallback_response)
+
+    def process_query(self, query: str) -> str:
+        """
+        The main pipeline: receives a query, classifies intent, 
+        and generates a response.
+        """
+        print(f"User Query: '{query}'")
+        
+        # 1. Classify the intent
+        intent = self.classify_intent(query)
+        print(f"Detected Intent: {intent}")
+        
+        # 2. Generate the response
+        response = self.generate_response(intent)
+        
+        return response
+
+def main():
+    """
+    Main function to run interactive testing of the agent.
+    """
+    print("\n--- Starting Customer Support Simulation ---")
+    
+    # Initialize the agent instance
+    agent = CustomerSupportAgent(KNOWLEDGE_BASE, INTENT_KEYWORDS)
+    
+    # Define a set of test queries covering different intents
+    test_queries = [
+        "Hello there!",
+        "I forgot my password, can you help?",
+        "Where is my order? I want to track shipping.",
+        "I need a refund for my recent purchase.",
+        "This isn't helping, I need to talk to a real person.",
+        "What is the airspeed velocity of an unladen swallow?", # Intentional unknown query
+        "Can I return my items and get my money back?"
+    ]
+    
+    print("\n--- Running Test Queries ---")
+    # Iterate through the test queries and process them
+    for query in test_queries:
+        print("-" * 40)
+        response = agent.process_query(query)
+        print(f"Agent Response: {response}")
+        
+    print("-" * 40)
+    print("\nSimulation complete.")
+
+    """
+    EXPECTED DEMO OUTPUT:
+    
+    --- Starting Customer Support Simulation ---
+    Customer Support Agent initialized and ready to assist.
+
+    --- Running Test Queries ---
+    ----------------------------------------
+    User Query: 'Hello there!'
+    Detected Intent: greeting
+    Agent Response: Hello! How can I help you today?
+    ----------------------------------------
+    User Query: 'I forgot my password, can you help?'
+    Detected Intent: password_reset
+    Agent Response: To reset your password, please visit https://example.com/reset and follow the instructions.
+    ----------------------------------------
+    User Query: 'Where is my order? I want to track shipping.'
+    Detected Intent: order_status
+    Agent Response: You can check your order status by logging into your account and visiting the 'My Orders' section.
+    ----------------------------------------
+    User Query: 'I need a refund for my recent purchase.'
+    Detected Intent: refund_policy
+    Agent Response: Our refund policy allows returns within 30 days of purchase. Please visit https://example.com/refunds for details.
+    ----------------------------------------
+    User Query: 'This isn't helping, I need to talk to a real person.'
+    Detected Intent: contact_human
+    Agent Response: I'm transferring you to a human agent now. Please wait a moment.
+    ----------------------------------------
+    User Query: 'What is the airspeed velocity of an unladen swallow?'
+    Detected Intent: unknown
+    Agent Response: I'm sorry, I didn't quite understand that. Could you please rephrase, or would you like to speak to a human representative?
+    ----------------------------------------
+    User Query: 'Can I return my items and get my money back?'
+    Detected Intent: refund_policy
+    Agent Response: Our refund policy allows returns within 30 days of purchase. Please visit https://example.com/refunds for details.
+    ----------------------------------------
+
+    Simulation complete.
+    """
+
+if __name__ == "__main__":
+    main()
